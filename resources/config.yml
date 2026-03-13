@@ -1,0 +1,7 @@
+tnt-required: 5
+
+messages:
+  place-tnt: "§aTNT placed to destroy bedrock."
+  already-active: "§cYou can't place another TNT until this one explodes!"
+  progress: "§e{remaining} more explosions until the bedrock breaks!"
+  success: "§aThe bedrock has been destroyed!"
