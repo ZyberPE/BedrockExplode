@@ -5,6 +5,7 @@ namespace BedrockExplode;
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
 use pocketmine\event\block\BlockPlaceEvent;
+use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\entity\EntityExplodeEvent;
 use pocketmine\block\VanillaBlocks;
 use pocketmine\utils\Config;
@@ -26,7 +27,7 @@ class Main extends PluginBase implements Listener{
 
         $player = $event->getPlayer();
 
-        foreach($event->getTransaction()->getBlocks() as [$x, $y, $z, $block]){
+        foreach($event->getTransaction()->getBlocks() as [$x,$y,$z,$block]){
 
             if($block->getTypeId() === VanillaBlocks::TNT()->getTypeId()){
 
@@ -38,6 +39,20 @@ class Main extends PluginBase implements Listener{
 
                 $this->activeTNT[$player->getName()] = true;
                 $player->sendMessage($this->config->getNested("messages.place-tnt"));
+            }
+        }
+    }
+
+    // NEW FIX
+    public function onBreak(BlockBreakEvent $event) : void{
+
+        $player = $event->getPlayer();
+        $block = $event->getBlock();
+
+        if($block->getTypeId() === VanillaBlocks::TNT()->getTypeId()){
+
+            if(isset($this->activeTNT[$player->getName()])){
+                unset($this->activeTNT[$player->getName()]);
             }
         }
     }
@@ -68,9 +83,9 @@ class Main extends PluginBase implements Listener{
                     for($z = -$radius; $z <= $radius; $z++){
 
                         $block = $world->getBlockAt(
-                            $center->getFloorX() + $x,
-                            $center->getFloorY() + $y,
-                            $center->getFloorZ() + $z
+                            $center->getFloorX()+$x,
+                            $center->getFloorY()+$y,
+                            $center->getFloorZ()+$z
                         );
 
                         if($block->getTypeId() === VanillaBlocks::BEDROCK()->getTypeId()){
