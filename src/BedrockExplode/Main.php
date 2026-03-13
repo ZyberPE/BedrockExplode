@@ -27,10 +27,6 @@ class Main extends PluginBase implements Listener{
 
         $player = $event->getPlayer();
 
-        if(!$player->hasPermission("bedrockexplode.use")){
-            return;
-        }
-
         foreach($event->getTransaction()->getBlocks() as [$x, $y, $z, $block]){
 
             if($block->getTypeId() === VanillaBlocks::TNT()->getTypeId()){
@@ -49,6 +45,10 @@ class Main extends PluginBase implements Listener{
 
     public function onExplode(EntityExplodeEvent $event) : void{
 
+        $center = $event->getPosition();
+        $world = $center->getWorld();
+        $radius = 3;
+
         $required = $this->config->get("tnt-required");
 
         foreach($this->activeTNT as $playerName => $v){
@@ -62,39 +62,49 @@ class Main extends PluginBase implements Listener{
 
             $bedrockHit = false;
 
-            foreach($event->getBlockList() as $block){
+            for($x = -$radius; $x <= $radius; $x++){
+                for($y = -$radius; $y <= $radius; $y++){
+                    for($z = -$radius; $z <= $radius; $z++){
 
-                if($block->getTypeId() === VanillaBlocks::BEDROCK()->getTypeId()){
-
-                    $bedrockHit = true;
-
-                    $pos = $block->getPosition();
-                    $key = $pos->getX().":".$pos->getY().":".$pos->getZ();
-
-                    if(!isset($this->bedrockDamage[$key])){
-                        $this->bedrockDamage[$key] = 0;
-                    }
-
-                    $this->bedrockDamage[$key]++;
-
-                    $remaining = $required - $this->bedrockDamage[$key];
-
-                    if($this->bedrockDamage[$key] >= $required){
-
-                        $pos->getWorld()->setBlock($pos, VanillaBlocks::AIR());
-                        unset($this->bedrockDamage[$key]);
-
-                        $player->sendMessage($this->config->getNested("messages.success"));
-
-                    }else{
-
-                        $msg = str_replace(
-                            "{remaining}",
-                            $remaining,
-                            $this->config->getNested("messages.progress")
+                        $block = $world->getBlockAt(
+                            $center->getFloorX() + $x,
+                            $center->getFloorY() + $y,
+                            $center->getFloorZ() + $z
                         );
 
-                        $player->sendMessage($msg);
+                        if($block->getTypeId() === VanillaBlocks::BEDROCK()->getTypeId()){
+
+                            $bedrockHit = true;
+
+                            $pos = $block->getPosition();
+                            $key = $pos->getX().":".$pos->getY().":".$pos->getZ();
+
+                            if(!isset($this->bedrockDamage[$key])){
+                                $this->bedrockDamage[$key] = 0;
+                            }
+
+                            $this->bedrockDamage[$key]++;
+
+                            $remaining = $required - $this->bedrockDamage[$key];
+
+                            if($this->bedrockDamage[$key] >= $required){
+
+                                $world->setBlock($pos, VanillaBlocks::AIR());
+                                unset($this->bedrockDamage[$key]);
+
+                                $player->sendMessage($this->config->getNested("messages.success"));
+
+                            }else{
+
+                                $msg = str_replace(
+                                    "{remaining}",
+                                    $remaining,
+                                    $this->config->getNested("messages.progress")
+                                );
+
+                                $player->sendMessage($msg);
+                            }
+                        }
                     }
                 }
             }
