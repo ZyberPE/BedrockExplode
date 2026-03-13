@@ -10,82 +10,83 @@ use pocketmine\block\VanillaBlocks;
 use pocketmine\player\Player;
 use pocketmine\utils\Config;
 
-class Main extends PluginBase implements Listener {
+class Main extends PluginBase implements Listener{
 
     private Config $config;
 
     private array $activeTNT = [];
     private array $bedrockDamage = [];
 
-    public function onEnable(): void{
+    public function onEnable() : void{
         $this->saveDefaultConfig();
         $this->config = $this->getConfig();
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
     }
 
-    public function onPlace(BlockPlaceEvent $event): void{
+    public function onPlace(BlockPlaceEvent $event) : void{
+
         $player = $event->getPlayer();
 
         if(!$player->hasPermission("bedrockexplode.use")){
             return;
         }
 
-        $block = $event->getBlock();
+        foreach($event->getTransaction()->getBlocks() as [$x, $y, $z, $block]){
 
-        if($block->getTypeId() === VanillaBlocks::TNT()->getTypeId()){
+            if($block->getTypeId() === VanillaBlocks::TNT()->getTypeId()){
 
-            if(isset($this->activeTNT[$player->getName()])){
-                $event->cancel();
-                $player->sendMessage($this->config->getNested("messages.already-active"));
-                return;
+                if(isset($this->activeTNT[$player->getName()])){
+                    $event->cancel();
+                    $player->sendMessage($this->config->getNested("messages.already-active"));
+                    return;
+                }
+
+                $this->activeTNT[$player->getName()] = true;
+                $player->sendMessage($this->config->getNested("messages.place-tnt"));
             }
-
-            $this->activeTNT[$player->getName()] = true;
-            $player->sendMessage($this->config->getNested("messages.place-tnt"));
         }
     }
 
-    public function onExplode(EntityExplodeEvent $event): void{
+    public function onExplode(EntityExplodeEvent $event) : void{
 
-        foreach($this->activeTNT as $player => $v){
-            unset($this->activeTNT[$player]);
-        }
-
-        $blocks = $event->getBlockList();
         $required = $this->config->get("tnt-required");
 
-        foreach($blocks as $block){
+        foreach($this->activeTNT as $playerName => $v){
 
-            if($block->getTypeId() === VanillaBlocks::BEDROCK()->getTypeId()){
+            $player = $this->getServer()->getPlayerExact($playerName);
 
-                $posKey = $block->getPosition()->getX().":".
-                          $block->getPosition()->getY().":".
-                          $block->getPosition()->getZ();
+            if($player === null){
+                unset($this->activeTNT[$playerName]);
+                continue;
+            }
 
-                if(!isset($this->bedrockDamage[$posKey])){
-                    $this->bedrockDamage[$posKey] = 0;
-                }
+            $bedrockHit = false;
 
-                $this->bedrockDamage[$posKey]++;
+            foreach($event->getBlockList() as $block){
 
-                $remaining = $required - $this->bedrockDamage[$posKey];
+                if($block->getTypeId() === VanillaBlocks::BEDROCK()->getTypeId()){
 
-                if($this->bedrockDamage[$posKey] >= $required){
+                    $bedrockHit = true;
 
-                    $block->getPosition()->getWorld()->setBlock(
-                        $block->getPosition(),
-                        VanillaBlocks::AIR()
-                    );
+                    $pos = $block->getPosition();
+                    $key = $pos->getX().":".$pos->getY().":".$pos->getZ();
 
-                    unset($this->bedrockDamage[$posKey]);
-
-                    foreach($this->getServer()->getOnlinePlayers() as $p){
-                        $p->sendMessage($this->config->getNested("messages.success"));
+                    if(!isset($this->bedrockDamage[$key])){
+                        $this->bedrockDamage[$key] = 0;
                     }
 
-                }else{
+                    $this->bedrockDamage[$key]++;
 
-                    foreach($this->getServer()->getOnlinePlayers() as $p){
+                    $remaining = $required - $this->bedrockDamage[$key];
+
+                    if($this->bedrockDamage[$key] >= $required){
+
+                        $pos->getWorld()->setBlock($pos, VanillaBlocks::AIR());
+                        unset($this->bedrockDamage[$key]);
+
+                        $player->sendMessage($this->config->getNested("messages.success"));
+
+                    }else{
 
                         $msg = str_replace(
                             "{remaining}",
@@ -93,10 +94,16 @@ class Main extends PluginBase implements Listener {
                             $this->config->getNested("messages.progress")
                         );
 
-                        $p->sendMessage($msg);
+                        $player->sendMessage($msg);
                     }
                 }
             }
+
+            if(!$bedrockHit){
+                $player->sendMessage($this->config->getNested("messages.not-touching"));
+            }
+
+            unset($this->activeTNT[$playerName]);
         }
     }
 }
