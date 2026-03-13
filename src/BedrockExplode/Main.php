@@ -7,7 +7,6 @@ use pocketmine\event\Listener;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\entity\EntityExplodeEvent;
 use pocketmine\block\VanillaBlocks;
-use pocketmine\player\Player;
 use pocketmine\utils\Config;
 
 class Main extends PluginBase implements Listener{
@@ -60,7 +59,9 @@ class Main extends PluginBase implements Listener{
                 continue;
             }
 
-            $bedrockHit = false;
+            $bedrockFound = false;
+            $remainingMsg = null;
+            $destroyed = false;
 
             for($x = -$radius; $x <= $radius; $x++){
                 for($y = -$radius; $y <= $radius; $y++){
@@ -74,7 +75,7 @@ class Main extends PluginBase implements Listener{
 
                         if($block->getTypeId() === VanillaBlocks::BEDROCK()->getTypeId()){
 
-                            $bedrockHit = true;
+                            $bedrockFound = true;
 
                             $pos = $block->getPosition();
                             $key = $pos->getX().":".$pos->getY().":".$pos->getZ();
@@ -85,32 +86,39 @@ class Main extends PluginBase implements Listener{
 
                             $this->bedrockDamage[$key]++;
 
-                            $remaining = $required - $this->bedrockDamage[$key];
-
                             if($this->bedrockDamage[$key] >= $required){
 
                                 $world->setBlock($pos, VanillaBlocks::AIR());
                                 unset($this->bedrockDamage[$key]);
-
-                                $player->sendMessage($this->config->getNested("messages.success"));
+                                $destroyed = true;
 
                             }else{
 
-                                $msg = str_replace(
-                                    "{remaining}",
-                                    $remaining,
-                                    $this->config->getNested("messages.progress")
-                                );
-
-                                $player->sendMessage($msg);
+                                $remaining = $required - $this->bedrockDamage[$key];
+                                $remainingMsg = $remaining;
                             }
                         }
                     }
                 }
             }
 
-            if(!$bedrockHit){
+            if(!$bedrockFound){
+
                 $player->sendMessage($this->config->getNested("messages.not-touching"));
+
+            }elseif($destroyed){
+
+                $player->sendMessage($this->config->getNested("messages.success"));
+
+            }elseif($remainingMsg !== null){
+
+                $msg = str_replace(
+                    "{remaining}",
+                    $remainingMsg,
+                    $this->config->getNested("messages.progress")
+                );
+
+                $player->sendMessage($msg);
             }
 
             unset($this->activeTNT[$playerName]);
