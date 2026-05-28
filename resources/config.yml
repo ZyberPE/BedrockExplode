@@ -4,5 +4,5 @@ messages:
   place-tnt: "§aTNT placed."
   already-active: "§cYou cannot place more TNT until the previous one explodes!"
   progress: "§e{remaining} more explosions until the bedrock breaks!"
-  success: "§aBedrock destroyed!"
+  success: "§aBedrock destroyed! almost there"
   not-touching: "§cTNT must explode touching bedrock to count."
